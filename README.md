@@ -12,7 +12,7 @@
 ### ARM Project
 ### Firmware update over the CAN bus using STM32
 This project provides a simple framework for performing firmware updates for STM32F103C8T6 microcontroller over the CAN bus
-using a custom bootloader that is responsible for switching between the 2 firmware versions using 2 buttons.
+A custom bootloader is responsible for switching between the 2 firmware versions using 2 buttons.
 #### Project Description
 ##### Objective
 Update the initial firmaware running on the STM32 that toggles the yellow LED every 1 sec.<br />
