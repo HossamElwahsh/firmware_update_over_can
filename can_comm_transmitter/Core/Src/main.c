@@ -24,6 +24,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "std.h"
 #include "FLASH_PAGE_F1.h"
 
 /* USER CODE END Includes */
@@ -31,44 +32,26 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
+typedef enum
+{
+	APP_STATE_NORMAL 	=	 0		,
+	APP_STATE_CHECK_FOR_UPDATES		,
+	APP_STATE_NO_UPDATE_AV			,
+	APP_STATE_GET_UPDATE_SIZE		,
+	APP_STATE_GET_UPDATE_SIZE_AGAIN	,
+	APP_STATE_INVALID_UPDATE_SIZE	,
+	APP_STATE_START_UPDATE			,
+	APP_STATE_RECEIVING_UPDATE		,
+	APP_STATE_UPDATE_RECEIVED		,
+	APP_STATE_FLASHING				,
+	APP_STATE_TOTAL
+}en_app_state_t;
+
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
-#define status(value) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, value)
-
-#define APP_SEND_DELAY_MS  200
-#define APP_SEND_TOG_COUNT 10
-
-#define APP_DATA_DELAY_INDEX	0
-#define APP_DATA_REPEAT_INDEX	1
-
-#define TRUE 	1
-#define FALSE 	0
-#define ZERO	0
-
-#define APP_TX_MSG_ID		0x101
-#define APP_RX_MSG_ID		0x103
-
-#define APP_DATA_LENGTH		2
-#define APP_REC_DATA_LENGTH 8
-
-// Red LED RX interrupt indicator
-#define APP_INT_LED_PORT		GPIOA
-#define APP_INT_LED_PIN			GPIO_PIN_2
-
-#define APP_DELAY_MS	conv.data[APP_DATA_DELAY_INDEX]
-#define APP_BLINK_COUNT conv.data[APP_DATA_REPEAT_INDEX]
-
-#define APP_2_START_ADDRESS 	0x08001C00UL
-
-// APP LEDs
-#define APP_LED_TX_CAN_ARGS		GPIOA, GPIO_PIN_1
-#define APP_LED_RX_CAN_ARGS		GPIOA, GPIO_PIN_2
-#define APP_LED_STATUS_ARGS		GPIOC, GPIO_PIN_13
-
-#define APP_CHECK_RX_WORDS_COUNT 580UL
 
 
 /* USER CODE END PD */
@@ -81,8 +64,15 @@
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan;
 
+I2C_HandleTypeDef hi2c1;
+
 /* USER CODE BEGIN PV */
 
+
+/* application current state */
+en_app_state_t en_gs_app_state = APP_STATE_NORMAL;
+
+/* CAN Handler for fetching and receiving updates */
 CAN_HandleTypeDef hcan;
 
 /* USER CODE BEGIN PV */
@@ -92,14 +82,25 @@ CAN_RxHeaderTypeDef RxHeader; //structure for message reception
 CAN_FilterTypeDef FilterConfig; //declare CAN filter structure
 
 uint32_t TxMailbox;
-uint8_t RxData[8];	//receive buffer
-uint8_t txbuf[8];	//transmit buffer
+
+/* Converter union for RxData */
+union
+{
+	uint8_t RxData[APP_RX_DATA_LENGTH];	// Receive buffer
+	uint32_t u32_Rx_Number;
+}un_gs_RxConv;
+
+
+uint8_t TxData[APP_TX_DATA_LENGTH];	// Transmit buffer
 uint8_t button_pressed;
-uint8_t mailbox_free_level;
 
-uint8_t to_flash_data[4640] = {0x00};
+uint8_t update_data_arr[APP_UPDATE_MAX_SIZE_BYTES] = {ZERO};
 
-unsigned int rec_count = 0;
+/* Counter to keep track of amount of update data received */
+STATIC uint32_t u32_gs_rec_count = ZERO;
+
+/* Holder for update size to be received */
+STATIC uint32_t u32_gs_update_size = ZERO;
 
 /* USER CODE END PV */
 
@@ -107,49 +108,120 @@ unsigned int rec_count = 0;
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
+static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
+
+static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str);
+static void app_tx_over_can(uint8_t * msg);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// flags
-int dataCheck = FALSE;
-int break_at = 16;
+/* Flag to indicate update data has been received and ready to be flashed */
+STATIC BOOLEAN bool_gs_update_ready = FALSE;
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
-	int i = 0;
+	/* loop counter for received update data */
+	int i = ZERO;
 
-		// receive led status toggle
-	  HAL_GPIO_TogglePin(APP_LED_RX_CAN_ARGS);
+	/* Read Message into local buffer [RxData] */
+	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, un_gs_RxConv.RxData);
 
-	  HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);		//copy message from FIFO into local variables
-
-	  // copy data
-	  //memcpy(to_flash_data + rec_count, RxData, APP_REC_DATA_LENGTH);
-
-
-	  for(i = 0; i < 8; i++)
-	  {
-		  to_flash_data[i + rec_count] = RxData[i];
-	  }
-
-	  rec_count += APP_REC_DATA_LENGTH;
+	// Toggle Receive LED indicator
+	HAL_GPIO_TogglePin(APP_LED_RX_CAN_ARGS);
 
 
-	  // check if total received count is correct
-	  if(rec_count >= APP_CHECK_RX_WORDS_COUNT * APP_REC_DATA_LENGTH ) // 12584
-	  {
-		  dataCheck = TRUE;
-	  }
-	  else
-	  {
-		  dataCheck = FALSE;
-	  }
+	/* Switch over APP states to take appropriate actions */
+	switch(en_gs_app_state)
+	{
+		case APP_STATE_NORMAL:
+		{
+		 /* Do Nothing */
+		 break;
+		}
+		case APP_STATE_CHECK_FOR_UPDATES:
+		{
+			/* Check for response */
+			if(ZERO == strcmp(un_gs_RxConv.RxData, APP_CAN_RESP_OK_UPDATE))
+			{
+				/* Update Available - Request update size */
+				en_gs_app_state = APP_STATE_GET_UPDATE_SIZE;
+			}
+			else if(ZERO == strcmp(un_gs_RxConv.RxData, APP_CAN_RESP_NO_UPDATE))
+			{
+				/* No Updates - Cancel */
+				en_gs_app_state = APP_STATE_NO_UPDATE_AV;
+			}
+			else
+			{
+				/* Drop */
+			}
+			break;
+		}
+		case APP_STATE_GET_UPDATE_SIZE:
+		{
+			/* Store size */
+			u32_gs_update_size = un_gs_RxConv.u32_Rx_Number;
+
+			/* Fetch again */
+			en_gs_app_state = APP_STATE_GET_UPDATE_SIZE_AGAIN;
+			break;
+		}
+		case APP_STATE_GET_UPDATE_SIZE_AGAIN:
+		{
+			/* Verify size */
+			if(
+					(u32_gs_update_size == un_gs_RxConv.u32_Rx_Number) &&
+					(u32_gs_update_size < APP_UPDATE_MAX_SIZE_BYTES)
+			)
+			{
+				/* Sizes Matches and Valid - Proceed with update */
+				en_gs_app_state = APP_STATE_START_UPDATE;
+			}
+			else
+			{
+				/* Fail */
+				en_gs_app_state = APP_STATE_INVALID_UPDATE_SIZE;
+			}
+
+			break;
+		}
+		case APP_STATE_RECEIVING_UPDATE:
+		{
+			/* Parse and Store Update Bytes */
+
+			  for(i = 0; i < APP_RX_DATA_LENGTH; i++)
+			  {
+				  update_data_arr[i + u32_gs_rec_count] = un_gs_RxConv.RxData[i];
+			  }
+
+			  u32_gs_rec_count += APP_RX_DATA_LENGTH;
+
+
+			  // Check if total received count is correct
+			  if(u32_gs_rec_count >= u32_gs_update_size)
+			  {
+				  /* Update APP state */
+				  en_gs_app_state = APP_STATE_UPDATE_RECEIVED;
+			  }
+			  else
+			  {
+				  /* Do Nothing */
+			  }
+
+		  break;
+		}
+
+		default:
+		{
+		  /* Do Nothing */
+		  break;
+		}
+	}
 }
-
 
 
 /* USER CODE END 0 */
@@ -161,6 +233,9 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
+	/* Update-Btn State, GPIO_PIN_SET: not pressed, GPIO_PIN_RESET: pressed */
+	GPIO_PinState GPIO_Loc_UpdateBtnState;
+
 
   /* USER CODE END 1 */
 
@@ -170,6 +245,8 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+	GPIO_Loc_UpdateBtnState = GPIO_PIN_SET;
+
 
   /* USER CODE END Init */
 
@@ -183,33 +260,59 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_CAN_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-  //HAL_TIM_Base_Start_IT(&htim2);
+  /* Systick Config */
+  /* Update SystemCoreClock variable according to Clock Register Values */
+	SystemCoreClockUpdate();
 
-   txbuf[0] = 0x00;
+	/* Generates interrupt every 500ms
+	 * Handler inside stm32f1xx_it.c -> SysTick_Handler
+	 * */
+	SysTick_Config(SystemCoreClock/4);
 
-   TxHeader.DLC=1; //give message size of 1 byte
-   TxHeader.IDE=CAN_ID_STD; //set identifier to standard
-   TxHeader.RTR=CAN_RTR_DATA; //RTR bit is set to data
-   TxHeader.TransmitGlobalTime = DISABLE;
+	SysTick->CTRL = 0;
+	SysTick->VAL = 0;
+	SysTick->CTRL =
+	  (
+			  SysTick_CTRL_TICKINT_Msk
+	  | SysTick_CTRL_ENABLE_Msk
+	  | SysTick_CTRL_CLKSOURCE_Msk);
 
-   FilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0; //set fifo assignment
-   FilterConfig.FilterIdHigh = 0; //0x245<<5; //the ID that the filter looks for
+
+	/* Init CAN Tx Variables */
+	TxData[0] = 0x00;
+
+	TxHeader.DLC=1; //give message size of 1 byte
+	TxHeader.IDE=CAN_ID_STD; //set identifier to standard
+	TxHeader.RTR=CAN_RTR_DATA; //RTR bit is set to data
+	TxHeader.TransmitGlobalTime = DISABLE;
+
+   /* Configure CAN Receiving Filter */
+   /* set FIFO assignment */
+   FilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+   /* 0x245<<5; the ID that the filter looks for: Zero to pass all IDs */
+   FilterConfig.FilterIdHigh = 0;
    FilterConfig.FilterIdLow = 0;
    FilterConfig.FilterMaskIdHigh = 0;
    FilterConfig.FilterMaskIdLow = 0;
+
+   /* Set Filter Scale */
    FilterConfig.FilterScale = CAN_FILTERSCALE_32BIT; //set filter scale
-   //FilterConfig.FilterActivation = ENABLE;
+
+   /* Enable Filter */
    FilterConfig.FilterActivation = ENABLE;
 
+   /* Configure CAN Filter */
    HAL_CAN_ConfigFilter(&hcan, &FilterConfig); //configure CAN filter
 
-   HAL_CAN_Start(&hcan); //start CAN
+   /* Start CAN */
+   HAL_CAN_Start(&hcan);
 
+   /* Enable Rx FIFO0 Interrupt */
    HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-   int sent_flag = FALSE;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -217,38 +320,125 @@ int main(void)
   while (1)
   {
 
-	  mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
-
-
-	  TxHeader.StdId = APP_TX_MSG_ID;
-	  TxHeader.DLC = APP_DATA_LENGTH;
-
-	  if( (mailbox_free_level > 0) && (sent_flag == 0))
+	  /* switch on current app state */
+	  switch(en_gs_app_state)
 	  {
-		  // free space in mailbox
-		  txbuf[APP_DATA_DELAY_INDEX]	= APP_SEND_DELAY_MS	;
-		  txbuf[APP_DATA_REPEAT_INDEX] 	= APP_SEND_TOG_COUNT;
+		  case APP_STATE_NORMAL:
+		  {
 
-		  HAL_CAN_AddTxMessage(&hcan, &TxHeader, txbuf, &TxMailbox);
+			  /* Check if update button is pressed */
+			  GPIO_Loc_UpdateBtnState = HAL_GPIO_ReadPin(APP_UPDATE_BTN_ARGS);
 
-		  HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
-		  sent_flag = TRUE;
+			  if(GPIO_PIN_RESET == GPIO_Loc_UpdateBtnState)
+			  {
+				  /* Debounce Delay */
+				  HAL_Delay(APP_BTN_DEBOUNCE_DELAY_MS);
+
+				  /* Recheck */
+				  GPIO_Loc_UpdateBtnState = HAL_GPIO_ReadPin(APP_UPDATE_BTN_ARGS);
+
+				  if(GPIO_PIN_RESET == GPIO_Loc_UpdateBtnState)
+				  {
+					  /* Btn is pressed
+					   * Check for updates */
+					  // todo check for update
+					  APP_BUZZ();
+					  en_gs_app_state = APP_STATE_CHECK_FOR_UPDATES;
+				  }
+				  else
+				  {
+					  /* Do Nothing */
+				  }
+			  }
+			  else
+			  {
+				  /* Do Nothing */
+			  }
+
+
+			  break;
+		  }
+		  case APP_STATE_CHECK_FOR_UPDATES:
+		  {
+			  app_tx_over_can(APP_CAN_CMD_CHECK_FOR_UPDATE);
+			  break;
+		  }
+		  case APP_STATE_GET_UPDATE_SIZE:
+		  case APP_STATE_GET_UPDATE_SIZE_AGAIN:
+		  {
+			  app_tx_over_can(APP_CAN_CMD_GET_UPDATE_SIZE);
+			  break;
+		  }
+		  case APP_STATE_START_UPDATE:
+		  {
+			  app_tx_over_can(APP_CAN_CMD_START_UPDATE);
+
+			  /* Switch to receiving state */
+			  en_gs_app_state = APP_STATE_RECEIVING_UPDATE;
+			  break;
+		  }
+		  case APP_STATE_RECEIVING_UPDATE:
+		  {
+			  /* IDLE - Receiving Data */
+			  break;
+		  }
+		  case APP_STATE_INVALID_UPDATE_SIZE:
+		  {
+			  /* todo show error on OLED */
+			  en_gs_app_state = APP_STATE_NORMAL;
+		  }
+
+		  case APP_STATE_NO_UPDATE_AV:
+		  {
+			  /* todo show error on OLED */
+			  en_gs_app_state = APP_STATE_NORMAL;
+		  }
+		  case APP_STATE_UPDATE_RECEIVED:
+		  {
+
+			  /* Add Padding If needed */
+			  uint8_t mod_result = MOD(u32_gs_update_size, APP_TX_DATA_LENGTH);
+
+			  if(ZERO == mod_result)
+			  {
+				  /* No Padding Needed */
+			  }
+			  else
+			  {
+				  /* Add Padding */
+				  uint8_t padding_count = APP_TX_DATA_LENGTH - mod_result;
+
+				  /* Add 0xFF padding */
+				  for (int var = 0; var < padding_count; ++var)
+				  {
+					  update_data_arr[u32_gs_rec_count + var] = BYTE_MAX_VAL;
+				  }
+
+				  /* Update size to be flashed */
+				  u32_gs_update_size += padding_count;
+			  }
+
+				/* Flash Update
+				 * Division by two because we flash 16 bits (2-bytes) per write
+				 *  */
+				Flash_Write_Data(APP_UPDATE_START_ADDRESS,
+						((uint32_t *)update_data_arr), u32_gs_update_size / 2);
+
+				/* Turn on status LED indicator to indicate flash is done */
+				APP_UPDATE_STATUS_LED(GPIO_PIN_SET);
+
+				/* Reset update ready flag */
+				bool_gs_update_ready = FALSE;
+
+			  break;
+		  }
+		  default:
+		  {
+			  /* Do Nothing */
+			  break;
+		  }
 	  }
 
-
-	  if(TRUE == dataCheck)
-	  {
-
-	  // Flash received
-
-		// Flash Yellow LED CODE
-		Flash_Write_Data(APP_2_START_ADDRESS,
-				((uint32_t *)to_flash_data), APP_CHECK_RX_WORDS_COUNT * 2); // 12584
-
-		HAL_GPIO_TogglePin(APP_LED_STATUS_ARGS);
-
-		dataCheck = FALSE;
-	  }
 
     /* USER CODE END WHILE */
 
@@ -330,6 +520,40 @@ static void MX_CAN_Init(void)
 }
 
 /**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -344,12 +568,16 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1|GPIO_PIN_2, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
@@ -365,11 +593,74 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : PA7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PB4 PB6 PB7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+
+/* Fills an array of APP_TX_DATA_LENGTH bytes with an APP_TX_DATA_LENGTH byte string */
+static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str)
+{
+	uint8_t var;
+
+	if(
+			(NULL_PTR != u8ptr_array) &&
+			(NULL_PTR != u8ptr_a_str)
+		)
+	{
+		for (var = 0; var < APP_TX_DATA_LENGTH; ++var)
+		{
+			u8ptr_array[var] = u8ptr_a_str[var];
+		}
+	}
+	else
+	{
+		/* Cancel */
+	}
+}
+
+static void app_tx_over_can(uint8_t * msg)
+{
+	/* CAN Mailbox free level */
+	uint8_t mailbox_free_level;
+
+	mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
+
+					/* Block wait until there's a free mailbox */
+					while(ZERO == mailbox_free_level)
+					{
+						/* Re-check mailbox free level */
+						mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
+					}
+
+					TxHeader.StdId = APP_CAN_TX_MSG_ID;
+					TxHeader.DLC = APP_TX_DATA_LENGTH;
+
+					/* free space in mailbox */
+
+					/* Fill CAN TxData buffer with CMD */
+					app_fill_array_with_str(TxData, msg);
+
+					/* Add Message to CAN Tx */
+					HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
+
+					/* Toggle TX LED indicator */
+					HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
+}
 
 /* USER CODE END 4 */
 

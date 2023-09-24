@@ -21,19 +21,19 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
-#include <string.h>
-#include "FLASH_PAGE_F1.h"
-
-#include "ssd1306.h"
-
-#include "app2_data.h"
 
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+typedef enum
+{
+	APP_STATE_NORMAL 	=	 0		,
+	APP_STATE_SENDING_UPDATE		,
+	APP_STATE_TOTAL
+}en_app_state_t;
 
 /* USER CODE END PTD */
 
@@ -54,6 +54,9 @@ I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
 
+/* application current state */
+en_app_state_t en_gs_app_state = APP_STATE_NORMAL;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -62,41 +65,18 @@ static void MX_GPIO_Init(void);
 static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str);
+static void app_tx_over_can(uint8_t * msg);
+static void app_tx_number_over_can(uint32_t number);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-// Configuration
-#define APP_DATA_DELAY_INDEX	0
-#define APP_DATA_REPEAT_INDEX	1
-#define APP_DATA_SIZE			2
-#define APP_TX_MSG_ID			0x103
-#define APP_RX_MSG_ID			0x101
-
-// APP LEDs
-#define APP_LED_TX_CAN_ARGS		GPIOA, GPIO_PIN_1
-#define APP_LED_RX_CAN_ARGS		GPIOA, GPIO_PIN_2
-#define APP_LED_STATUS_ARGS		GPIOC, GPIO_PIN_13
-
-// Helping Macros
-#define TRUE 	1
-#define FALSE 	0
-#define ZERO	0
-//#define APP_DELAY_MS	RxData[APP_DATA_DELAY_INDEX]
-//#define APP_BLINK_COUNT RxData[APP_DATA_REPEAT_INDEX]
-#define APP_DELAY_MS	conv.data[APP_DATA_DELAY_INDEX]
-#define APP_BLINK_COUNT conv.data[APP_DATA_REPEAT_INDEX]
-
-#define APP_SEND_DELAY_MS  100
-#define APP_SEND_TOG_COUNT 20
-
 CAN_TxHeaderTypeDef TxHeader;
 CAN_RxHeaderTypeDef RxHeader;
 CAN_FilterTypeDef FilterConfig; //declare CAN filter structure
 
-uint8_t TxData[8];
 uint8_t RxData[8];
 
 uint32_t TxMailbox;
@@ -104,36 +84,40 @@ uint8_t mailbox_free_level;
 uint32_t rx_fifo_level;
 
 
-union{
-	unsigned char data[2];
-	unsigned int number;
-}conv;
+/* Converter union for TxData */
+union
+{
+	uint8_t TxData[APP_TX_DATA_LENGTH];	// Transmit buffer
+	uint32_t u32_Tx_Number;
+}un_gs_TxConv;
 
 #define CAN_TX_CHUNK_SIZE_IN_WORDS 256 // Word = 32 bit
 
-// flags
-int dataCheck = FALSE;
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
+	// Toggle receive led status
+	HAL_GPIO_TogglePin(APP_LED_RX_CAN_ARGS);
 
-		// receive led status toggle
-	  HAL_GPIO_TogglePin(APP_LED_RX_CAN_ARGS);
+	// Receive Message
+	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);
 
-	  HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);		//copy message from FIFO into local variables
+	if(ZERO == strcmp(RxData, APP_CAN_RESP_CHECK_FOR_UPDATE))
+	{
+		/* Respond with OK update available */
+		app_tx_over_can(APP_CAN_CMD_OK_UPDATE);
+	}
+	else if(ZERO == strcmp(RxData, APP_CAN_RESP_GET_UPDATE_SIZE))
+	{
+		/* Send Update Size */
+		app_tx_number_over_can(APP_UPDATE_SIZE);
+	}
+	else if(ZERO == strcmp(RxData, APP_CAN_RESP_START_UPDATE))
+	{
+		/* Update app state to send update */
+		en_gs_app_state = APP_STATE_SENDING_UPDATE;
+	}
 
-	  // copy data
-	  memcpy(conv.data, RxData, sizeof(conv.data));
-
-	  // check if data length is correct
-	  if(APP_DATA_SIZE == RxHeader.DLC)
-	  {
-		  dataCheck = TRUE;
-	  }
-	  else
-	  {
-		  dataCheck = FALSE;
-	  }
 }
 
 
@@ -181,42 +165,10 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
-//  HAL_CAN_Start(&hcan);
-
-  // Activate Notification
-
-
-  // Send 2 bytes
-//  TxHeader.DLC = APP_DATA_SIZE; // data length
-//  TxHeader.ExtId = 0;
-//  TxHeader.IDE = CAN_ID_STD;
-//  TxHeader.RTR = CAN_RTR_DATA;
-//  TxHeader.StdId = APP_TX_MSG_ID; // Sender ID
-//  TxHeader.TransmitGlobalTime = DISABLE;
-//
-//  TxData[APP_DATA_DELAY_INDEX] 	= 100;
-//  TxData[APP_DATA_REPEAT_INDEX] = 20;
-//
-//  HAL_GPIO_TogglePin(APP_LED_PORT, APP_LED_PIN);
-
-
-  //----------------------------------------------------
-
-   //RST(1);
-
-   //HAL_Delay(10);
-   //initVFD();
-   //VFDWriteString(0, display_test);
-   //HAL_Delay(2000);
-   //clear();
-   //VFDWriteString(0, message);
-   //HAL_Delay(2000);
-   //clear();
-
    TxHeader.DLC=8; //give message size of 8 byte
    TxHeader.IDE=CAN_ID_STD; //set identifier to standard
    TxHeader.RTR=CAN_RTR_DATA; //set data type to remote transmission request?
-   TxHeader.StdId=APP_TX_MSG_ID; //define a standard identifier, used for message identification by filters (switch this for the other microcontroller)
+   TxHeader.StdId=APP_CAN_TX_MSG_ID; //define a standard identifier, used for message identification by filters (switch this for the other microcontroller)
 
 
    //filter one (stack light blink)
@@ -253,8 +205,8 @@ int main(void)
 
 	uint32_t sent_data_count = ZERO;
 	uint32_t next_send_index = ZERO;
-
-	uint8_t can_send = FALSE;
+	/* Number of 8-bytes chunks to be sent */
+	uint32_t arr_chunks_count = ZERO;
 
 	HAL_StatusTypeDef can_status_retval;
 	unsigned int k = 0;
@@ -265,48 +217,20 @@ int main(void)
   while (1)
   {
 
-	  // POLLING CODE --------------------------
-//	  if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) != 0){				//poll to see if FIFO has something
-//			  HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData);		//copy message from FIFO into local variables
-//
-//			  dataCheck = TRUE;
-//	  }
-
-//		  if(RxHeader.StdId == APP_RX_MSG_ID)
-//		  {
-//			  // copy data
-//			  memcpy(conv.data, RxData, sizeof(conv.data));
-//		  }
-	  // END POLLING CODE -------------------------
-
-	  // Check TX Mailbox free space
-	  mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
-
-	  if(TRUE == dataCheck)
+	  if(APP_STATE_SENDING_UPDATE == en_gs_app_state)
 	  {
-//		  SSD1306_Println("Toggling LED");
-//		   SSD1306_UpdateScreen();
 
-		  for(int i = 0; i < APP_BLINK_COUNT; i++)
-		  {
-			  HAL_GPIO_TogglePin(APP_LED_STATUS_ARGS);
-			  HAL_Delay(APP_DELAY_MS);
-		  }
+		  // Check TX Mailbox free space
+		  mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
 
-		  // clear data validation flag
-		  dataCheck = FALSE;
-		  can_send = TRUE;
-	  }
-
-	  if(TRUE == can_send)
-	  {
 		  // reset count
 		  sent_data_count = 0;
+		  arr_chunks_count = ARR_SIZE(update_data_array) / APP_TX_DATA_LENGTH;
 
-		  while(sent_data_count < 580)
+		  while(sent_data_count < arr_chunks_count)
 		  {
-//		  		  SSD1306_Println("sending chunk: %i", sent_data_count);
-//		  		   SSD1306_UpdateScreen();
+		//		  		  SSD1306_Println("sending chunk: %i", sent_data_count);
+		//		  		   SSD1306_UpdateScreen();
 
 			  // check mailbox
 			  mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
@@ -325,10 +249,10 @@ int main(void)
 			  {
 				  next_send_index = (k + (sent_data_count * 8));
 
-				  TxData[k] = LED_Yellow_ProgramCode[next_send_index];
+				  un_gs_TxConv.TxData[k] = update_data_array[next_send_index];
 			  }
 
-			  can_status_retval = HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
+			  can_status_retval = HAL_CAN_AddTxMessage(&hcan, &TxHeader, un_gs_TxConv.TxData, &TxMailbox);
 
 			  // Tx Check
 			  if(HAL_OK == can_status_retval)
@@ -342,54 +266,20 @@ int main(void)
 			  }
 		  }
 
-		  // finish sending
-		  can_send = FALSE;
+		  // Sending Done - Clear Flags
+		  en_gs_app_state = APP_STATE_NORMAL;
+		  sent_data_count = ZERO;
+		  next_send_index = ZERO;
+	  }
+	  else
+	  {
+		  /* IDLE */
 	  }
 
 
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-//	  if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO0) != 0)
-//	  {				//poll to see if FIFO has something
-//		  HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO0, &RxHeader, RxData);		//copy message from FIFO into local variables
-//		   dataCheck = TRUE;
-//	  }
-//
-//	  if(HAL_CAN_GetRxFifoFillLevel(&hcan, CAN_RX_FIFO1) != 0)
-//	  {				//poll to see if FIFO has something
-//		  HAL_CAN_GetRxMessage(&hcan, CAN_RX_FIFO1, &RxHeader, RxData);		//copy message from FIFO into local variables
-//		  dataCheck = TRUE;
-//	  }
-
-
-//	 	  if(RxHeader.StdId == 0x100){
-//	 		  test_val = rxbuf[0] & 0x01;
-//	 		  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, test_val);
-//	 	  }
-//
-//	 	  if(RxHeader.StdId == 0x101){
-//	 		  memcpy(conv.data, rxbuf, sizeof(conv.data));
-//	 		  sprintf(buffer, "%d   ", conv.number);
-//	 		  //sprintf(buffer, "%d   ", rxbuf[0]);
-//	 		  VFDWriteString(0, buffer);
-//	 	  }
-//
-//	  if(TRUE == dataCheck)
-//	  {
-//		  for(int i = 0; i < APP_BLINK_COUNT; i++)
-//		  {
-//			  HAL_GPIO_TogglePin(APP_LED_PORT, APP_LED_PIN);
-//			  HAL_Delay(APP_DELAY_MS);
-//		  }
-//
-//		  // clear data validation flag
-//		  dataCheck = FALSE;
-//
-//		  // Send msg
-//		  HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
-//	  }
 
   }
   /* USER CODE END 3 */
@@ -560,6 +450,81 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+static void app_tx_over_can(uint8_t * msg)
+{
+	/* CAN Mailbox free level */
+	uint8_t mailbox_free_level;
+
+	mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
+
+	/* Block wait until there's a free mailbox */
+	while(ZERO == mailbox_free_level)
+	{
+		/* Re-check mailbox free level */
+		mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
+	}
+
+	TxHeader.StdId = APP_CAN_TX_MSG_ID;
+	TxHeader.DLC = APP_TX_DATA_LENGTH;
+
+	/* free space in mailbox */
+
+	/* Fill CAN TxData buffer with CMD */
+	app_fill_array_with_str(un_gs_TxConv.TxData, msg);
+
+	/* Add Message to CAN Tx */
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader, un_gs_TxConv.TxData, &TxMailbox);
+
+	/* Toggle TX LED indicator */
+	HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
+}
+
+static void app_tx_number_over_can(uint32_t number)
+{
+	/* CAN Mailbox free level */
+	uint8_t mailbox_free_level;
+
+	mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
+
+	/* Block wait until there's a free mailbox */
+	while(ZERO == mailbox_free_level)
+	{
+		/* Re-check mailbox free level */
+		mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
+	}
+
+	un_gs_TxConv.u32_Tx_Number = number;
+
+	TxHeader.StdId = APP_CAN_TX_MSG_ID;
+	TxHeader.DLC = APP_TX_DATA_LENGTH;
+
+	/* Add Message to CAN Tx */
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader, un_gs_TxConv.TxData, &TxMailbox);
+
+	/* Toggle TX LED indicator */
+	HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
+}
+
+/* Fills an array of APP_TX_DATA_LENGTH bytes with an APP_TX_DATA_LENGTH byte string */
+static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str)
+{
+	uint8_t var;
+
+	if(
+			(NULL_PTR != u8ptr_array) &&
+			(NULL_PTR != u8ptr_a_str)
+		)
+	{
+		for (var = 0; var < APP_TX_DATA_LENGTH; ++var)
+		{
+			u8ptr_array[var] = u8ptr_a_str[var];
+		}
+	}
+	else
+	{
+		/* Cancel */
+	}
+}
 /* USER CODE END 4 */
 
 /**
