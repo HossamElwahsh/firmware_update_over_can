@@ -35,10 +35,21 @@ A custom bootloader is responsible for switching between the 2 firmware versions
 ##### Objective
 Update the initial firmware running on the STM32 that toggles the blue LED every 2 sec.<br />
 to a new firmware that toggles the blue LED every 1 sec.
-##### Steps
-1. Convert updated firmaware (([LED_BLINK](https://github.com/HossamElwahsh/firmware_flash_using_can_with_custom_bootloader/tree/main/LED_BLINK))) [.bin](https://github.com/HossamElwahsh/firmware_flash_using_can_with_custom_bootloader/blob/main/LED_BLINK/Debug/LED_BLINK.bin) file to an array 
-using this tool: https://notisrac.github.io/FileToCArray/.
+---
 
+### General Operational Notes
+#### To add a New Update Application to the server ECU 
+1. Convert updated firmware Bin file e.g. [LED_Blink.bin](LED_BLINK/Debug/LED_BLINK.bin) to an array 
+using this tool: https://notisrac.github.io/FileToCArray/
+2. Add Padding of `0xFF` if needed to keep `array_size % 8 = 0` to facilitate flashing
+3. Update [app2_data.h](update_server/Core/Inc/app2_data.h) `APP_UPDATE_SIZE` with the new array size
+4. Update [app2_data.c](update_server/Core/Src/app2_data.c) with the new array contents
+5. Re-compile and flash
 
-##### Communication Plan
+#### Notes on Bootloader Operation
+- Bootloader automatically checks if there's a new version flashed, if yes it will boot to the new updated version directly.
+- Bootloader behavior can be overridden by holding (SW-1) or (SW-2) during boot to force entry of Application 1 (main app) or Application 2 (update) respectively.
+
+---
+### Communication Plan
 ![CAN_COMM](dist/comm_sequence-Firmware_Update_over_CAN.png)
