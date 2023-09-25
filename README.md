@@ -42,9 +42,10 @@ to a new firmware that toggles the blue LED every 1 sec.
 1. Convert updated firmware Bin file e.g. [LED_Blink.bin](LED_BLINK/Debug/LED_BLINK.bin) to an array 
 using this tool: https://notisrac.github.io/FileToCArray/
 2. Add Padding of `0xFF` if needed to keep `array_size % 8 = 0` to facilitate flashing
-3. Update [app2_data.h](update_server/Core/Inc/app2_data.h) `APP_UPDATE_SIZE` with the new array size
-4. Update [app2_data.c](update_server/Core/Src/app2_data.c) with the new array contents
-5. Re-compile and flash
+3. **Make sure your data array won't exceed 7000 bytes [per design - updated will be refused]**
+4. Update [app2_data.h](update_server/Core/Inc/app2_data.h) `APP_UPDATE_SIZE` with the new array size
+5. Update [app2_data.c](update_server/Core/Src/app2_data.c) with the new array contents
+6. Re-compile and flash
 
 #### Notes on Bootloader Operation
 - Bootloader automatically checks if there's a new version flashed, if yes it will boot to the new updated version directly.
