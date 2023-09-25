@@ -25,8 +25,8 @@ A custom bootloader is responsible for switching between the 2 firmware versions
 
 #### Project Description
 ##### Objective
-Update the initial firmaware running on the STM32 that toggles the blue LED every 1 sec.<br />
-to a new firmware that toggles the blue LED every 0.5 sec.
+Update the initial firmware running on the STM32 that toggles the blue LED every 2 sec.<br />
+to a new firmware that toggles the blue LED every 1 sec.
 ##### Steps
 1. Convert updated firmaware (([LED_BLINK](https://github.com/HossamElwahsh/firmware_flash_using_can_with_custom_bootloader/tree/main/LED_BLINK))) [.bin](https://github.com/HossamElwahsh/firmware_flash_using_can_with_custom_bootloader/blob/main/LED_BLINK/Debug/LED_BLINK.bin) file to an array 
 using this tool: https://notisrac.github.io/FileToCArray/.
