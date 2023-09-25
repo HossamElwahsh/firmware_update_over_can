@@ -29,9 +29,6 @@
 
 #include "fonts.h"
 #include "ssd1306.h"
-#include "bitmap.h"
-#include "test.h"
-#include "horse_anim.h"
 
 /* USER CODE END Includes */
 

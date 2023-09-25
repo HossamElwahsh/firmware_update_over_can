@@ -258,17 +258,6 @@ void ssd1306_I2C_Write(uint8_t address, uint8_t reg, uint8_t data);
  */
 void ssd1306_I2C_WriteMulti(uint8_t address, uint8_t reg, uint8_t *data, uint16_t count);
 
-/**
- * @brief  Draws the Bitmap
- * @param  X:  X location to start the Drawing
- * @param  Y:  Y location to start the Drawing
- * @param  *bitmap : Pointer to the bitmap
- * @param  W : width of the image
- * @param  H : Height of the image
- * @param  color : 1-> white/blue, 0-> black
- */
-void SSD1306_DrawBitmap(int16_t x, int16_t y, const unsigned char* bitmap, int16_t w, int16_t h, uint16_t color);
-
 // scroll the screen for fixed rows
 
 void SSD1306_ScrollRight(uint8_t start_row, uint8_t end_row);

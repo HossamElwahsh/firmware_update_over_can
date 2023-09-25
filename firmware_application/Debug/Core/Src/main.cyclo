@@ -1,0 +1,14 @@
+../Drivers/CMSIS/Include/core_cm3.h:1639:22:__NVIC_SetPriority	2
+../Drivers/CMSIS/Include/core_cm3.h:1762:34:__NVIC_SystemReset	1
+../Drivers/CMSIS/Include/core_cm3.h:1834:26:SysTick_Config	2
+../Core/Src/main.c:123:6:HAL_CAN_RxFifo0MsgPendingCallback	11
+../Core/Src/main.c:261:5:main	9
+../Core/Src/main.c:501:6:SystemClock_Config	3
+../Core/Src/main.c:537:13:MX_CAN_Init	2
+../Core/Src/main.c:574:13:MX_I2C1_Init	2
+../Core/Src/main.c:608:13:MX_GPIO_Init	1
+../Core/Src/main.c:652:13:app_switch_state	10
+../Core/Src/main.c:778:13:app_write_on_screen	4
+../Core/Src/main.c:809:13:app_fill_array_with_str	4
+../Core/Src/main.c:829:13:app_tx_over_can	2
+../Core/Src/main.c:864:6:Error_Handler	1

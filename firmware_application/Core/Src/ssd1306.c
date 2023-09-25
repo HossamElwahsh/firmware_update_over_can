@@ -131,36 +131,6 @@ void SSD1306_InvertDisplay (int i)
 }
 
 
-void SSD1306_DrawBitmap(int16_t x, int16_t y, const unsigned char* bitmap, int16_t w, int16_t h, uint16_t color)
-{
-
-    int16_t byteWidth = (w + 7) / 8; // Bitmap scanline pad = whole byte
-    uint8_t byte = 0;
-
-    for(int16_t j=0; j<h; j++, y++)
-    {
-        for(int16_t i=0; i<w; i++)
-        {
-            if(i & 7)
-            {
-               byte <<= 1;
-            }
-            else
-            {
-               byte = (*(const unsigned char *)(&bitmap[j * byteWidth + i / 8]));
-            }
-            if(byte & 0x80) SSD1306_DrawPixel(x+i, y, color);
-        }
-    }
-}
-
-
-
-
-
-
-
-
 uint8_t SSD1306_Init(void) {
 
 	/* Init I2C */
