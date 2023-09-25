@@ -33,4 +33,4 @@ using this tool: https://notisrac.github.io/FileToCArray/.
 
 
 ##### Communication Plan
-![CAN_COMM](/home/hossam/Documents/STM32/custom_bootloader_using_can/dist/comm_sequence-Firmware_Update_over_CAN.png)
+![CAN_COMM](dist/comm_sequence-Firmware_Update_over_CAN.png)
