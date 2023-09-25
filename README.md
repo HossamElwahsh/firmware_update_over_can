@@ -16,12 +16,12 @@ A custom bootloader is responsible for switching between the 2 firmware versions
 
 ### Dist Files
 
-| ECU | APP               | Build File                           | Description                                                                                                                                             |
-|-----|-------------------|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1   | Custom Bootloader | [hex](dist/custom_bootloader.hex)    | Handles switching between updates<br>Supports override mode                                                                                             |
-| 1   | Main Application  | [hex](dist/firmware_application.hex) | Main firmware application handles CAN communication, checking for updates, OLED display step by step, Toggles an LED every 2 seconds in the background. |
-| 2   | Update Server     | [hex](dist/update_server.hex)        | Runs on a separate ECU, Communicates over CAN, serves new updates to requesting ECUs                                                                    |
-| -   | Blink Update      | [hex](dist/LED_BLINK.hex)            | Updated application that blinks LED every 1 second                                                                                                      |
+| ECU | APP               | Build File                           | Description                                                                                                                                                                            |
+|-----|-------------------|--------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1   | Custom Bootloader | [hex](dist/custom_bootloader.hex)    | Handles switching between updates, Supports override mode by holding SW (1) to force boot into "main application" skipping loading updated app which is the default behavior if found. |
+| 1   | Main Application  | [hex](dist/firmware_application.hex) | Main firmware application handles CAN communication, checking for updates, OLED display step by step, Toggles an LED every 2 seconds in the background.                                |
+| 2   | Update Server     | [hex](dist/update_server.hex)        | Runs on a separate ECU, Communicates over CAN, serves new updates to requesting ECUs                                                                                                   |
+| -   | Blink Update      | [hex](dist/LED_BLINK.hex)            | Updated application that blinks LED every 1 second                                                                                                                                     |
 
 #### Project Description
 ##### Objective
