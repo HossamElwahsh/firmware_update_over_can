@@ -74,14 +74,10 @@ I2C_HandleTypeDef hi2c1;
 
 /* USER CODE BEGIN PV */
 
-
+/* Flag indicating whether a new app version is installed and ready to be switched to or not */
+static BOOLEAN bool_gs_new_version_available = FALSE;
 /* application current state */
-en_app_state_t en_gs_app_state = APP_STATE_NORMAL;
-
-/* CAN Handler for fetching and receiving updates */
-CAN_HandleTypeDef hcan;
-
-/* USER CODE BEGIN PV */
+static en_app_state_t en_gs_app_state = APP_STATE_NORMAL;
 
 CAN_TxHeaderTypeDef TxHeader; //structure for transmitting messages
 CAN_RxHeaderTypeDef RxHeader; //structure for message reception
@@ -270,6 +266,7 @@ int main(void)
   /* USER CODE BEGIN 1 */
 	/* Update-Btn State, GPIO_PIN_SET: not pressed, GPIO_PIN_RESET: pressed */
 	GPIO_PinState GPIO_Loc_UpdateBtnState;
+	GPIO_PinState GPIO_Loc_ResetBtnState;
 
 
   /* USER CODE END 1 */
@@ -281,6 +278,7 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 	GPIO_Loc_UpdateBtnState = GPIO_PIN_SET;
+	GPIO_Loc_ResetBtnState = GPIO_PIN_SET;
 
 
   /* USER CODE END Init */
@@ -301,9 +299,6 @@ int main(void)
   SSD1306_Init (); // initialize the display
 
   SSD1306_Clear();
-
-  /* Print Welcome Lines */
-  APP_PRINT_MAIN_WELCOME_SCREEN();
 
   /* Systick Config */
   /* Update SystemCoreClock variable according to Clock Register Values */
@@ -355,6 +350,8 @@ int main(void)
    /* Enable Rx FIFO0 Interrupt */
    HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 
+    /* Switch app state to normal */
+    app_switch_state(APP_STATE_NORMAL);
 
   /* USER CODE END 2 */
 
@@ -371,8 +368,17 @@ int main(void)
 
 			  /* Check if update button is pressed */
 			  GPIO_Loc_UpdateBtnState = HAL_GPIO_ReadPin(APP_UPDATE_BTN_ARGS);
+			  GPIO_Loc_ResetBtnState = HAL_GPIO_ReadPin(APP_RESET_BTN_ARGS);
 
-			  if(GPIO_PIN_RESET == GPIO_Loc_UpdateBtnState)
+			  if(GPIO_PIN_RESET == GPIO_Loc_ResetBtnState)
+			  {
+				  /* Clear Screen */
+                  SSD1306_Clear();
+
+                  /* Reset system - bootloader will handle the switching */
+                  NVIC_SystemReset();
+			  }
+			  else if(GPIO_PIN_RESET == GPIO_Loc_UpdateBtnState)
 			  {
 				  /* Btn is pressed
 				   * Check for updates */
@@ -399,8 +405,7 @@ int main(void)
 		  }
 		  case APP_STATE_START_UPDATE:
 		  {
-              /* Switch to receiving update */
-              app_switch_state(APP_STATE_RECEIVING_UPDATE);
+              /* Do Nothing */
               break;
 		  }
 		  case APP_STATE_RECEIVING_UPDATE:
@@ -411,7 +416,7 @@ int main(void)
 		  case APP_STATE_INVALID_UPDATE_SIZE:
 		  {
               APP_OLED_CLEAR_WRITE(APP_OLED_INVALID_UPDATE_SIZE, 0, 0);
-              HAL_Delay(APP_OLED_MSG_TIMEOUT);
+              HAL_Delay(APP_OLED_MSG_TIMEOUT_TICKS);
               /* Reset state back to normal */
               app_switch_state(APP_STATE_NORMAL);
               break;
@@ -420,7 +425,7 @@ int main(void)
 		  case APP_STATE_NO_UPDATE_AV:
 		  {
               APP_OLED_CLEAR_WRITE(APP_OLED_NO_UPDATES, 0, 0);
-              HAL_Delay(APP_OLED_MSG_TIMEOUT);
+              HAL_Delay(APP_OLED_MSG_TIMEOUT_TICKS);
               /* Reset state back to normal */
               app_switch_state(APP_STATE_NORMAL);
               break;
@@ -466,7 +471,7 @@ int main(void)
 
               APP_OLED_WRITE(APP_OLED_UPDATED_INSTALLED, 0, 4);
 
-              HAL_Delay(APP_OLED_MSG_TIMEOUT);
+              HAL_Delay(APP_OLED_MSG_TIMEOUT_TICKS);
 
               app_switch_state(APP_STATE_NORMAL);
               break;
@@ -553,7 +558,7 @@ static void MX_CAN_Init(void)
   hcan.Init.AutoWakeUp = DISABLE;
   hcan.Init.AutoRetransmission = ENABLE;
   hcan.Init.ReceiveFifoLocked = DISABLE;
-  hcan.Init.TransmitFifoPriority = DISABLE;
+  hcan.Init.TransmitFifoPriority = ENABLE;
   if (HAL_CAN_Init(&hcan) != HAL_OK)
   {
     Error_Handler();
@@ -649,21 +654,44 @@ static void MX_GPIO_Init(void)
 
 static void app_switch_state(en_app_state_t en_a_app_new_state)
 {
-    switch(en_gs_app_state)
+    switch(en_a_app_new_state)
     {
         case APP_STATE_NORMAL:
         {
+            /* Print welcome message */
             APP_PRINT_MAIN_WELCOME_SCREEN();
-            /* Do Nothing */
+
+            /* Check for new version installation to switch to */
+            /* Buffer for flash data */
+            uint32_t dataBuffer[1] = {0};
+
+            /* Read flash data at new version installation address */
+            Flash_Read_Data(APP_UPDATE_START_ADDRESS, dataBuffer, 0);
+
+            /* Check if there's actually new version installed in that address */
+            if(dataBuffer[0] != UINT32_MAX_VAL)
+            {
+                /* New Version Available */
+                APP_PRINT_NEW_VERSION_AVAILABLE();
+
+                /* Update Global Flag */
+                bool_gs_new_version_available = TRUE;
+            }
+            else
+            {
+                /* Update Global Flag */
+                bool_gs_new_version_available = FALSE;
+            }
+
             break;
         }
         case APP_STATE_CHECK_FOR_UPDATES:
         {
-            /* Send Check for Updates Command */
-            app_tx_over_can(APP_CAN_CMD_CHECK_FOR_UPDATE);
-
             /* Update OLED */
             APP_PRINT_CHECKING_FOR_UPDATES();
+
+            /* Send Check for Updates Command */
+            app_tx_over_can(APP_CAN_CMD_CHECK_FOR_UPDATE);
             break;
         }
         case APP_STATE_GET_UPDATE_SIZE:
@@ -689,9 +717,15 @@ static void app_switch_state(en_app_state_t en_a_app_new_state)
             /* Update OLED */
             APP_OLED_CLEAR_WRITE(APP_OLED_STARTING_UPDATE, 0, 0);
 
+            /* Immediately Switch to Receiving update state to prevent data loss */
+            en_gs_app_state = APP_STATE_RECEIVING_UPDATE;
+            en_a_app_new_state = APP_STATE_RECEIVING_UPDATE;
+
             /* Send Start Update Command */
             app_tx_over_can(APP_CAN_CMD_START_UPDATE);
-            break;
+            /*break;*/
+
+            /* No Break to process the Receiving update section */
         }
         case APP_STATE_RECEIVING_UPDATE:
         {

@@ -68,6 +68,8 @@ static void MX_I2C1_Init(void);
 static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str);
 static void app_tx_over_can(uint8_t * msg);
 static void app_tx_number_over_can(uint32_t number);
+static boolean app_check_command_match(uint8_t * array, uint8_t * command);
+static void app_switch_state(en_app_state_t en_a_app_state);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -102,17 +104,17 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 	// Receive Message
 	HAL_CAN_GetRxMessage(hcan, CAN_RX_FIFO0, &RxHeader, RxData);
 
-	if(ZERO == strcmp(RxData, APP_CAN_RESP_CHECK_FOR_UPDATE))
+	if(TRUE == app_check_command_match(RxData, APP_CAN_RESP_CHECK_FOR_UPDATE))
 	{
 		/* Respond with OK update available */
 		app_tx_over_can(APP_CAN_CMD_OK_UPDATE);
 	}
-	else if(ZERO == strcmp(RxData, APP_CAN_RESP_GET_UPDATE_SIZE))
+	else if(TRUE == app_check_command_match(RxData, APP_CAN_RESP_GET_UPDATE_SIZE))
 	{
 		/* Send Update Size */
 		app_tx_number_over_can(APP_UPDATE_SIZE);
 	}
-	else if(ZERO == strcmp(RxData, APP_CAN_RESP_START_UPDATE))
+	else if(TRUE == app_check_command_match(RxData, APP_CAN_RESP_START_UPDATE))
 	{
 		/* Update app state to send update */
 		en_gs_app_state = APP_STATE_SENDING_UPDATE;
@@ -171,31 +173,25 @@ int main(void)
    TxHeader.StdId=APP_CAN_TX_MSG_ID; //define a standard identifier, used for message identification by filters (switch this for the other microcontroller)
 
 
-   //filter one (stack light blink)
-   FilterConfig.FilterFIFOAssignment=CAN_FILTER_FIFO0; //set fifo assignment
-   //sFilterConfig.FilterIdHigh=0; //0x245<<5; //the ID that the filter looks for (switch this for the other microcontroller)
-   //sFilterConfig.FilterIdLow=0;
-   FilterConfig.FilterMaskIdHigh=0x0000;
-   FilterConfig.FilterMaskIdLow=0x0000;
-   FilterConfig.FilterScale=CAN_FILTERSCALE_32BIT; //set filter scale
-   //FilterConfig.FilterActivation=CAN_FILTER_ENABLE;
-   FilterConfig.FilterActivation = ENABLE;
-   /*
-    * Filter MUST be on in order to receive messages.  If disabled
-    * no message can be received.
-    * To receive all messages, set filters to 0;
-    */
+   /* Configure CAN Receiving Filter */
+	 /* set FIFO assignment */
+	 FilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	 /* 0x245<<5; the ID that the filter looks for: Zero to pass all IDs */
+	 FilterConfig.FilterIdHigh = 0;
+	 FilterConfig.FilterIdLow = 0;
+	 FilterConfig.FilterMaskIdHigh = 0;
+	 FilterConfig.FilterMaskIdLow = 0;
 
-   FilterConfig.FilterBank = 0;
-   FilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
+	 /* Set Filter Scale */
+	 FilterConfig.FilterScale = CAN_FILTERSCALE_32BIT; //set filter scale
 
+	 /* Enable Filter */
+	 FilterConfig.FilterActivation = ENABLE;
 
-   HAL_CAN_ConfigFilter(&hcan, &FilterConfig); //configure CAN filter
+	 /* Configure CAN Filter */
+	 HAL_CAN_ConfigFilter(&hcan, &FilterConfig); //configure CAN filter
 
    HAL_CAN_Start(&hcan); //start CAN
-//   SSD1306_Println("Can Started");
-
-//   SSD1306_UpdateScreen();
 
    HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 
@@ -203,6 +199,7 @@ int main(void)
 	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_2);
 	HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13);
 
+	uint32_t sent_data_count_cpy = ZERO;
 	uint32_t sent_data_count = ZERO;
 	uint32_t next_send_index = ZERO;
 	/* Number of 8-bytes chunks to be sent */
@@ -219,6 +216,9 @@ int main(void)
 
 	  if(APP_STATE_SENDING_UPDATE == en_gs_app_state)
 	  {
+
+		  /* Upload Data Startup Delay */
+		  HAL_Delay(APP_PRE_UPLOAD_UPDATE_DATA_DELAY);
 
 		  // Check TX Mailbox free space
 		  mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
@@ -259,6 +259,7 @@ int main(void)
 			  {
 				  // send next
 				  sent_data_count++;
+				  sent_data_count_cpy++;
 			  }
 			  else
 			  {
@@ -352,21 +353,6 @@ static void MX_CAN_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN_Init 2 */
-
-  CAN_FilterTypeDef canFilterConfig;
-
-  canFilterConfig.FilterActivation = CAN_FILTER_ENABLE;
-  canFilterConfig.FilterBank = 10;
-  canFilterConfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  canFilterConfig.FilterIdHigh = 0xc7 << 5;
-  canFilterConfig.FilterIdLow = 0x0000;
-  canFilterConfig.FilterMaskIdHigh = 0xc7 << 13;
-  canFilterConfig.FilterMaskIdLow = 0x0000;
-  canFilterConfig.FilterMode = CAN_FILTERMODE_IDMASK;
-  canFilterConfig.FilterScale = CAN_FILTERSCALE_32BIT;
-  canFilterConfig.SlaveStartFilterBank = 13;
-
-  HAL_CAN_ConfigFilter(&hcan, &canFilterConfig);
 
 
   /* USER CODE END CAN_Init 2 */
@@ -479,6 +465,24 @@ static void app_tx_over_can(uint8_t * msg)
 	HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
 }
 
+/* Checks if an array holds the same data as the str command */
+static boolean app_check_command_match(uint8_t * array, uint8_t * command)
+{
+    boolean retval = TRUE;
+
+    for (int i = 0; i < APP_TX_DATA_LENGTH; ++i)
+    {
+        if(array[i] != command[i])
+        {
+            retval = FALSE;
+            break;
+        }
+    }
+
+    return retval;
+}
+
+/* Transmits a Uint32_t number over CAN */
 static void app_tx_number_over_can(uint32_t number)
 {
 	/* CAN Mailbox free level */
@@ -503,6 +507,15 @@ static void app_tx_number_over_can(uint32_t number)
 
 	/* Toggle TX LED indicator */
 	HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
+}
+
+static void app_switch_state(en_app_state_t en_a_app_state)
+{
+
+
+
+    /* Update global app state */
+    en_gs_app_state = en_a_app_state;
 }
 
 /* Fills an array of APP_TX_DATA_LENGTH bytes with an APP_TX_DATA_LENGTH byte string */

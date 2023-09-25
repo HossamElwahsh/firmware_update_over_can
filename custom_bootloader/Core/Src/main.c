@@ -19,6 +19,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "std.h"
+#include "FLASH_PAGE_F1.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -76,7 +78,7 @@ __attribute__( ( naked, noreturn ) ) void BootJumpASM( uint32_t SP, uint32_t RH 
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+    BOOLEAN new_version_installed = FALSE;
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -109,6 +111,25 @@ int main(void)
   HAL_GPIO_WritePin(APP_RED_LED_ARGS, GPIO_PIN_RESET);
   HAL_Delay(500);
 
+    /* Check for new version installation to switch to */
+    /* Buffer for flash data */
+    uint32_t dataBuffer[1] = {0};
+
+    /* Read flash data at new version installation address */
+    Flash_Read_Data(APP2_ADDRESS, dataBuffer, 0);
+
+    /* Check if there's actually new version installed in that address */
+    if(dataBuffer[0] != UINT32_MAX_VAL)
+    {
+        /* Update new version flag */
+        new_version_installed = TRUE;
+    }
+    else
+    {
+        /* Update new version flag */
+        new_version_installed = FALSE;
+    }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -140,6 +161,19 @@ int main(void)
 		  // Goto application 2
 		  BootJump(( uint32_t * )APP2_ADDRESS);
 	  }
+      else
+      {
+          if(TRUE == new_version_installed)
+          {
+              // Goto new application version
+              BootJump(( uint32_t * )APP2_ADDRESS);
+          }
+          else
+          {
+              // Goto Base Application
+              BootJump(( uint32_t * )APP1_ADDRESS);
+          }
+      }
   }
   /* USER CODE END 3 */
 }

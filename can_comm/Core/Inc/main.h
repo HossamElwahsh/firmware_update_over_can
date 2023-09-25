@@ -84,10 +84,7 @@ void Error_Handler(void);
 					HAL_GPIO_WritePin(APP_BUZZER_ARGS, GPIO_PIN_RESET)
 
 /* APP Delays */
-#define APP_SEND_DELAY_MS  200
-#define APP_BTN_DEBOUNCE_DELAY_MS 50
-#define APP_BUZZ_DELAY_MS 100
-
+#define APP_PRE_UPLOAD_UPDATE_DATA_DELAY 1000
 /* APP CAN Configs */
 #define APP_CAN_TX_MSG_ID		0x103
 #define APP_CAN_RX_MSG_ID		0x101
@@ -98,10 +95,10 @@ void Error_Handler(void);
 /* Flashing Config */
 
 /* APP CAN Commands/Messages */
-#define APP_CAN_CMD_OK_UPDATE			((uint8_t *)"OKUPDATE")
+#define APP_CAN_CMD_OK_UPDATE			((unsigned char *)"OKUPDATE")
 #define APP_CAN_MCD_NO_UPDATE			((unsigned char *)"NOUPDATE")
 
-#define APP_CAN_RESP_CHECK_FOR_UPDATE 	("CHECKUPD")
+#define APP_CAN_RESP_CHECK_FOR_UPDATE 	((unsigned char *)"CHECKUPD")
 #define APP_CAN_RESP_GET_UPDATE_SIZE	((unsigned char *)"UPDTSIZE")
 #define APP_CAN_RESP_START_UPDATE		((unsigned char *)"STARTUPD")
 

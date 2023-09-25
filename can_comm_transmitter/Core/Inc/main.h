@@ -65,7 +65,7 @@ void Error_Handler(void);
 #define APP_LED_RX_CAN_ARGS		GPIOA, GPIO_PIN_2
 #define APP_LED_STATUS_ARGS		GPIOC, GPIO_PIN_13
 #define APP_UPDATE_BTN_ARGS		GPIOB, GPIO_PIN_0
-#define APP_BUZZER_ARGS			GPIOB, GPIO_PIN_4
+#define APP_RESET_BTN_ARGS		GPIOB, GPIO_PIN_1
 
 
 /* APP CAN Commands/Messages */
@@ -79,6 +79,8 @@ void Error_Handler(void);
 #define APP_OLED_WELCOME_L1				(uint8_t *)"EME"
 #define APP_OLED_WELCOME_L2				(uint8_t *)"Blinking every 2s"
 #define APP_OLED_WELCOME_L3				(uint8_t *)"Press 4 to update"
+#define APP_OLED_NEW_VERSION_L4         (uint8_t *)"For New Version"
+#define APP_OLED_NEW_VERSION_L5	    	(uint8_t *)"Press reset :)"
 #define APP_OLED_CHECKING_FOR_UPDATE_L1	(uint8_t *)"Please wait"
 #define APP_OLED_CHECKING_FOR_UPDATE_L2	(uint8_t *)"Checking for"
 #define APP_OLED_CHECKING_FOR_UPDATE_L3	(uint8_t *)"updates..."
@@ -96,20 +98,23 @@ void Error_Handler(void);
 #define APP_UPDATE_STATUS_LED(value) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, value)
 #define APP_TOGGLE_STATUS_LED() HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13)
 
-#define APP_OLED_WRITE(string, col, row) app_write_on_screen(string, col, row, FALSE);
-#define APP_OLED_CLEAR_WRITE(string, col, row) app_write_on_screen(string, col, row, TRUE);
+#define APP_OLED_WRITE(string, col, row) app_write_on_screen(string, col, row, FALSE)
+#define APP_OLED_CLEAR_WRITE(string, col, row) app_write_on_screen(string, col, row, TRUE)
 
 #define APP_PRINT_MAIN_WELCOME_SCREEN() APP_OLED_CLEAR_WRITE(APP_OLED_WELCOME_L1, 0, 0);\
-		APP_OLED_WRITE(APP_OLED_WELCOME_L2, 0, 2);\
-		APP_OLED_WRITE(APP_OLED_WELCOME_L3, 0, 3);
+		APP_OLED_WRITE(APP_OLED_WELCOME_L2, 0, 1);\
+		APP_OLED_WRITE(APP_OLED_WELCOME_L3, 0, 2)
+
+#define APP_PRINT_NEW_VERSION_AVAILABLE() APP_OLED_WRITE(APP_OLED_NEW_VERSION_L4, 0, 4);\
+		APP_OLED_WRITE(APP_OLED_NEW_VERSION_L5, 0, 5)
 
 #define APP_PRINT_CHECKING_FOR_UPDATES()  APP_OLED_CLEAR_WRITE(APP_OLED_CHECKING_FOR_UPDATE_L1, 0, 0);\
 		APP_OLED_WRITE(APP_OLED_CHECKING_FOR_UPDATE_L2, 0, 2);\
-		APP_OLED_WRITE(APP_OLED_CHECKING_FOR_UPDATE_L3, 6, 3);
+		APP_OLED_WRITE(APP_OLED_CHECKING_FOR_UPDATE_L3, 6, 3)
 
 
 /* APP Delays */
-#define APP_OLED_MSG_TIMEOUT 3000
+#define APP_OLED_MSG_TIMEOUT_TICKS 1
 
 /* APP CAN Configs */
 #define APP_CAN_TX_MSG_ID		0x101
