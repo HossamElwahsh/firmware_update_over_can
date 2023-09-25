@@ -23,6 +23,14 @@ A custom bootloader is responsible for switching between the 2 firmware versions
 | 2   | Update Server     | [hex](dist/update_server.hex)        | Runs on a separate ECU, Communicates over CAN, serves new updates to requesting ECUs                                                                                                   |
 | -   | Blink Update      | [hex](dist/LED_BLINK.hex)            | Updated application that blinks LED every 1 second                                                                                                                                     |
 
+### Memory Map 
+|          APP        |        Address Range       | Flash Size |
+|:-:                  |:-:                         |:-:         |
+| Custom Bootloader   | 0x0800 0000 - 0x0800 1800  |     6K     |
+| Updated Application | 0x0800 1C00 - 0x0800 3800  |     7K     |
+| Main Application    | 0x0800 4C00 - 0x0800 AC00  |     24K    |
+
+
 #### Project Description
 ##### Objective
 Update the initial firmware running on the STM32 that toggles the blue LED every 2 sec.<br />
