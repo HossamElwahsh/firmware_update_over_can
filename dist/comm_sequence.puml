@@ -1,0 +1,49 @@
+@startuml
+'https://plantuml.com/sequence-diagram
+'Author: Hossam Elwahsh
+!theme cerulean
+title Firmware Update over CAN
+
+skinparam backgroundColor #white
+
+actor User
+
+User -> MAIN_ECU: Click check for update btn
+
+activate MAIN_ECU
+MAIN_ECU -> SERVER_ECU++#lightgreen: Check for update\n"CHECKUPD"
+
+alt Update available
+
+SERVER_ECU --> MAIN_ECU: New update is available\n"OKUPDATE"
+
+MAIN_ECU -> SERVER_ECU: Request update size\n"UPDTSIZE"
+
+SERVER_ECU --> MAIN_ECU: <UPDATE SIZE>
+
+MAIN_ECU -> SERVER_ECU: Re-request update size (Verification)\n"UPDTSIZE"
+
+SERVER_ECU --> MAIN_ECU: <UPDATE SIZE>
+
+alt update sizes match && less than MAX supported
+
+MAIN_ECU -> SERVER_ECU: Request update data\n"STARTUPD"
+SERVER_ECU --> MAIN_ECU: <Update Data>
+MAIN_ECU -> MAIN_ECU: Process Update Data
+MAIN_ECU -> MAIN_ECU: Install Update
+MAIN_ECU -> User: Prompt to restart
+
+else #Pink Failed
+
+MAIN_ECU -> User: Report Errors
+
+end
+
+else #LightGray No Updates
+
+SERVER_ECU --> MAIN_ECU: No update\n"NOUPDATE"
+MAIN_ECU -> User: Report No Update
+
+end
+
+@enduml

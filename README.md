@@ -31,3 +31,6 @@ to a new firmware that toggles the blue LED every 1 sec.
 1. Convert updated firmaware (([LED_BLINK](https://github.com/HossamElwahsh/firmware_flash_using_can_with_custom_bootloader/tree/main/LED_BLINK))) [.bin](https://github.com/HossamElwahsh/firmware_flash_using_can_with_custom_bootloader/blob/main/LED_BLINK/Debug/LED_BLINK.bin) file to an array 
 using this tool: https://notisrac.github.io/FileToCArray/.
 
+
+##### Communication Plan
+![CAN_COMM](/home/hossam/Documents/STM32/custom_bootloader_using_can/dist/comm_sequence-Firmware_Update_over_CAN.png)
