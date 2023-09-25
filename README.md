@@ -19,7 +19,8 @@ Update the initial firmware running on the STM32 that toggles the blue LED every
 to a new firmware that toggles the blue LED every 1 sec.
 #### Video - Youtube:
 [![YouTube](https://img.shields.io/badge/YouTube-%23FF0000.svg?style=flat&logo=YouTube&logoColor=white)](https://youtu.be/PZlC6VovCnU)
-
+#### Communication Plan
+![CAN_COMM](dist/comm_sequence-Firmware_Update_over_CAN.png)
 #### Dist Files
 
 | ECU | APP               | Build File                           | Description                                                                                                                                                                            |
@@ -35,9 +36,6 @@ to a new firmware that toggles the blue LED every 1 sec.
 | Custom Bootloader   | 0x0800 0000 - 0x0800 1800  |     6K     |
 | Updated Application | 0x0800 1C00 - 0x0800 3800  |     7K     |
 | Main Application    | 0x0800 4C00 - 0x0800 AC00  |     24K    |
-
-#### Communication Plan
-![CAN_COMM](dist/comm_sequence-Firmware_Update_over_CAN.png)
 
 ---
 ### General Operational Notes
