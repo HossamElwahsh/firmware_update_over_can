@@ -1,0 +1,173 @@
+cmake_minimum_required(VERSION 3.26)
+project(custom_bootloader_using_can C)
+
+set(CMAKE_C_STANDARD 11)
+
+include_directories(can_comm_transmitter/Core/Inc)
+include_directories(can_comm_transmitter/Core/Src)
+include_directories(can_comm_transmitter/Drivers/CMSIS)
+include_directories(can_comm_transmitter/Drivers/CMSIS/Device)
+include_directories(can_comm_transmitter/Drivers/CMSIS/Device/ST)
+include_directories(can_comm_transmitter/Drivers/CMSIS/Device/ST/STM32F1xx)
+include_directories(can_comm_transmitter/Drivers/CMSIS/Device/ST/STM32F1xx/Include)
+include_directories(can_comm_transmitter/Drivers/CMSIS/Include)
+include_directories(can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver)
+include_directories(can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc)
+include_directories(can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy)
+include_directories(can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src)
+include_directories(LED_BLINK/Drivers/CMSIS/Device)
+include_directories(LED_BLINK/Drivers/CMSIS/Device/ST)
+include_directories(LED_BLINK/Drivers/CMSIS/Device/ST/STM32F1xx)
+include_directories(LED_BLINK/Drivers/CMSIS/Device/ST/STM32F1xx/Include)
+include_directories(LED_BLINK/Drivers/CMSIS/Include)
+include_directories(LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy)
+
+add_executable(custom_bootloader_using_can
+        can_comm_transmitter/Core/Inc/FLASH_PAGE_F1.h
+        can_comm_transmitter/Core/Inc/main.h
+        can_comm_transmitter/Core/Inc/std.h
+        can_comm_transmitter/Core/Inc/stm32f1xx_hal_conf.h
+        can_comm_transmitter/Core/Inc/stm32f1xx_it.h
+        can_comm_transmitter/Core/Src/FlASH_PAGE_F1.c
+        can_comm_transmitter/Core/Src/main.c
+        can_comm_transmitter/Core/Src/stm32f1xx_hal_msp.c
+        can_comm_transmitter/Core/Src/stm32f1xx_it.c
+        can_comm_transmitter/Core/Src/syscalls.c
+        can_comm_transmitter/Core/Src/sysmem.c
+        can_comm_transmitter/Core/Src/system_stm32f1xx.c
+        can_comm_transmitter/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h
+        can_comm_transmitter/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h
+        can_comm_transmitter/Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h
+        can_comm_transmitter/Drivers/CMSIS/Include/cmsis_armcc.h
+        can_comm_transmitter/Drivers/CMSIS/Include/cmsis_armclang.h
+        can_comm_transmitter/Drivers/CMSIS/Include/cmsis_compiler.h
+        can_comm_transmitter/Drivers/CMSIS/Include/cmsis_gcc.h
+        can_comm_transmitter/Drivers/CMSIS/Include/cmsis_iccarm.h
+        can_comm_transmitter/Drivers/CMSIS/Include/cmsis_version.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_armv8mbl.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_armv8mml.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm0.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm0plus.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm1.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm23.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm3.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm33.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm4.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_cm7.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_sc000.h
+        can_comm_transmitter/Drivers/CMSIS/Include/core_sc300.h
+        can_comm_transmitter/Drivers/CMSIS/Include/mpu_armv7.h
+        can_comm_transmitter/Drivers/CMSIS/Include/mpu_armv8.h
+        can_comm_transmitter/Drivers/CMSIS/Include/tz_context.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_can.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_cortex.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma_ex.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_exti.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio_ex.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_i2c.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc_ex.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_tim_ex.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_bus.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_cortex.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_dma.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_exti.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_gpio.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_i2c.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_pwr.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_rcc.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_system.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_utils.h
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_can.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_cortex.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_exti.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_i2c.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pwr.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim.c
+        can_comm_transmitter/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_tim_ex.c
+        LED_BLINK/Core/Inc/LED_Blink_1.h
+        LED_BLINK/Core/Inc/main.h
+        LED_BLINK/Core/Inc/stm32f1xx_hal_conf.h
+        LED_BLINK/Core/Inc/stm32f1xx_it.h
+        LED_BLINK/Core/Src/LED_Blink_1.c
+        LED_BLINK/Core/Src/main.c
+        LED_BLINK/Core/Src/stm32f1xx_hal_msp.c
+        LED_BLINK/Core/Src/stm32f1xx_it.c
+        LED_BLINK/Core/Src/syscalls.c
+        LED_BLINK/Core/Src/sysmem.c
+        LED_BLINK/Core/Src/system_stm32f1xx.c
+        LED_BLINK/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f103xb.h
+        LED_BLINK/Drivers/CMSIS/Device/ST/STM32F1xx/Include/stm32f1xx.h
+        LED_BLINK/Drivers/CMSIS/Device/ST/STM32F1xx/Include/system_stm32f1xx.h
+        LED_BLINK/Drivers/CMSIS/Include/cmsis_armcc.h
+        LED_BLINK/Drivers/CMSIS/Include/cmsis_armclang.h
+        LED_BLINK/Drivers/CMSIS/Include/cmsis_compiler.h
+        LED_BLINK/Drivers/CMSIS/Include/cmsis_gcc.h
+        LED_BLINK/Drivers/CMSIS/Include/cmsis_iccarm.h
+        LED_BLINK/Drivers/CMSIS/Include/cmsis_version.h
+        LED_BLINK/Drivers/CMSIS/Include/core_armv8mbl.h
+        LED_BLINK/Drivers/CMSIS/Include/core_armv8mml.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm0.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm0plus.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm1.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm23.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm3.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm33.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm4.h
+        LED_BLINK/Drivers/CMSIS/Include/core_cm7.h
+        LED_BLINK/Drivers/CMSIS/Include/core_sc000.h
+        LED_BLINK/Drivers/CMSIS/Include/core_sc300.h
+        LED_BLINK/Drivers/CMSIS/Include/mpu_armv7.h
+        LED_BLINK/Drivers/CMSIS/Include/mpu_armv8.h
+        LED_BLINK/Drivers/CMSIS/Include/tz_context.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/Legacy/stm32_hal_legacy.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_cortex.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_def.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_dma_ex.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_exti.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_flash_ex.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_gpio_ex.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_pwr.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_hal_rcc_ex.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_bus.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_cortex.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_dma.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_exti.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_gpio.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_pwr.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_rcc.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_system.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Inc/stm32f1xx_ll_utils.h
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_cortex.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_dma.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_exti.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_flash_ex.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_gpio_ex.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_pwr.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc.c
+        LED_BLINK/Drivers/STM32F1xx_HAL_Driver/Src/stm32f1xx_hal_rcc_ex.c)

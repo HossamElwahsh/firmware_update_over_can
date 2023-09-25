@@ -27,6 +27,10 @@
 #include "std.h"
 #include "FLASH_PAGE_F1.h"
 
+#include "fonts.h"
+#include "ssd1306.h"
+#include "bitmap.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -214,13 +218,43 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 
 		  break;
 		}
-
-		default:
+        case APP_STATE_NO_UPDATE_AV:
+        {
+            /* Do Nothing */
+            break;
+        }
+        case APP_STATE_INVALID_UPDATE_SIZE:
+        {
+            /* Do Nothing */
+            break;
+        }
+        case APP_STATE_START_UPDATE:
+        {
+            /* Do Nothing */
+            break;
+        }
+        case APP_STATE_UPDATE_RECEIVED:
+        {
+            /* Do Nothing */
+            break;
+        }
+        case APP_STATE_FLASHING:
+        {
+            /* Do Nothing */
+            break;
+        }
+        case APP_STATE_TOTAL:
+        {
+            /* Do Nothing */
+            break;
+        }
+        default:
 		{
 		  /* Do Nothing */
 		  break;
 		}
-	}
+
+    }
 }
 
 
@@ -313,6 +347,64 @@ int main(void)
    /* Enable Rx FIFO0 Interrupt */
    HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 
+   /* Initialize OLED Screen */
+
+   /* Init OLED */
+    SSD1306_Init();
+
+    /// lets print some string
+
+    SSD1306_GotoXY (0,0);
+    SSD1306_Puts ("HELLO", &Font_11x18, 1);
+    SSD1306_GotoXY (10, 30);
+    SSD1306_Puts ("  WORLD :)", &Font_11x18, 1);
+    SSD1306_UpdateScreen(); //display
+
+    HAL_Delay (2000);
+
+
+    SSD1306_ScrollRight(0,7);  // scroll entire screen
+    HAL_Delay(2000);  // 2 sec
+
+    SSD1306_ScrollLeft(0,7);  // scroll entire screen
+    HAL_Delay(2000);  // 2 sec
+
+    SSD1306_Stopscroll();
+    SSD1306_Clear();
+/*
+
+
+    SSD1306_ScrollRight(0x00, 0x0f);    // scroll entire screen right
+
+    HAL_Delay (2000);
+
+    SSD1306_ScrollLeft(0x00, 0x0f);  // scroll entire screen left
+
+    HAL_Delay (2000);
+*/
+
+/*
+    SSD1306_Scrolldiagright(0x00, 0x0f);  // scroll entire screen diagonal right
+
+    HAL_Delay (2000);
+
+    SSD1306_Scrolldiagleft(0x00, 0x0f);  // scroll entire screen diagonal left
+
+    HAL_Delay (2000);
+
+    SSD1306_Stopscroll();   // stop scrolling. If not done, screen will keep on scrolling
+
+
+    SSD1306_InvertDisplay(1);   // invert the display
+
+    HAL_Delay(2000);
+
+    SSD1306_InvertDisplay(0);  // normalize the display
+*/
+//
+
+//    HAL_Delay(2000);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -360,17 +452,20 @@ int main(void)
 		  }
 		  case APP_STATE_CHECK_FOR_UPDATES:
 		  {
+              /* Send Check for Updates Command */
 			  app_tx_over_can(APP_CAN_CMD_CHECK_FOR_UPDATE);
 			  break;
 		  }
 		  case APP_STATE_GET_UPDATE_SIZE:
 		  case APP_STATE_GET_UPDATE_SIZE_AGAIN:
 		  {
+              /* Send Get Update Size Command */
 			  app_tx_over_can(APP_CAN_CMD_GET_UPDATE_SIZE);
 			  break;
 		  }
 		  case APP_STATE_START_UPDATE:
 		  {
+              /* Send Start Update Command */
 			  app_tx_over_can(APP_CAN_CMD_START_UPDATE);
 
 			  /* Switch to receiving state */
@@ -386,12 +481,15 @@ int main(void)
 		  {
 			  /* todo show error on OLED */
 			  en_gs_app_state = APP_STATE_NORMAL;
+              break;
 		  }
 
 		  case APP_STATE_NO_UPDATE_AV:
 		  {
 			  /* todo show error on OLED */
 			  en_gs_app_state = APP_STATE_NORMAL;
+
+              break;
 		  }
 		  case APP_STATE_UPDATE_RECEIVED:
 		  {
@@ -432,12 +530,23 @@ int main(void)
 
 			  break;
 		  }
+          case APP_STATE_FLASHING:
+          {
+              /* Do Nothing */
+              break;
+          }
+          case APP_STATE_TOTAL:
+          {
+              /* Do Nothing */
+              break;
+          }
 		  default:
 		  {
 			  /* Do Nothing */
 			  break;
 		  }
-	  }
+
+      }
 
 
     /* USER CODE END WHILE */
@@ -612,7 +721,7 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-/* Fills an array of APP_TX_DATA_LENGTH bytes with an APP_TX_DATA_LENGTH byte string */
+/* Fills an array with APP_TX_DATA_LENGTH bytes with an APP_TX_DATA_LENGTH byte string */
 static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str)
 {
 	uint8_t var;
@@ -640,26 +749,26 @@ static void app_tx_over_can(uint8_t * msg)
 
 	mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
 
-					/* Block wait until there's a free mailbox */
-					while(ZERO == mailbox_free_level)
-					{
-						/* Re-check mailbox free level */
-						mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
-					}
+	/* Block wait until there's a free mailbox */
+	while(ZERO == mailbox_free_level)
+	{
+		/* Re-check mailbox free level */
+		mailbox_free_level = HAL_CAN_GetTxMailboxesFreeLevel(&hcan);
+	}
 
-					TxHeader.StdId = APP_CAN_TX_MSG_ID;
-					TxHeader.DLC = APP_TX_DATA_LENGTH;
+	TxHeader.StdId = APP_CAN_TX_MSG_ID;
+	TxHeader.DLC = APP_TX_DATA_LENGTH;
 
-					/* free space in mailbox */
+	/* free space in mailbox */
 
-					/* Fill CAN TxData buffer with CMD */
-					app_fill_array_with_str(TxData, msg);
+	/* Fill CAN TxData buffer with CMD */
+	app_fill_array_with_str(TxData, msg);
 
-					/* Add Message to CAN Tx */
-					HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
+	/* Add Message to CAN Tx */
+	HAL_CAN_AddTxMessage(&hcan, &TxHeader, TxData, &TxMailbox);
 
-					/* Toggle TX LED indicator */
-					HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
+	/* Toggle TX LED indicator */
+	HAL_GPIO_TogglePin(APP_LED_TX_CAN_ARGS);
 }
 
 /* USER CODE END 4 */
