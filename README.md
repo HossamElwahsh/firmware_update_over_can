@@ -13,6 +13,16 @@
 ### Firmware update over the CAN bus 
 This project provides a simple framework for performing firmware updates for STM32F103C8T6 microcontroller over the CAN bus.<br />
 A custom bootloader is responsible for switching between the 2 firmware versions using 2 buttons.
+
+### Dist Files
+
+| ECU | APP               | Build File                           | Description                                                                                                                                             |
+|-----|-------------------|--------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1   | Custom Bootloader | [hex](dist/custom_bootloader.hex)    | Handles switching between updates<br>Supports override mode                                                                                             |
+| 1   | Main Application  | [hex](dist/firmware_application.hex) | Main firmware application handles CAN communication, checking for updates, OLED display step by step, Toggles an LED every 2 seconds in the background. |
+| 2   | Update Server     | [hex](dist/update_server.hex)        | Runs on a separate ECU, Communicates over CAN, serves new updates to requesting ECUs                                                                    |
+| -   | Blink Update      | [hex](dist/LED_BLINK.hex)            | Updated application that blinks LED every 1 second                                                                                                      |
+
 #### Project Description
 ##### Objective
 Update the initial firmaware running on the STM32 that toggles the blue LED every 1 sec.<br />
