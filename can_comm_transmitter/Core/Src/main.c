@@ -30,6 +30,8 @@
 #include "fonts.h"
 #include "ssd1306.h"
 #include "bitmap.h"
+#include "test.h"
+#include "horse_anim.h"
 
 /* USER CODE END Includes */
 
@@ -115,16 +117,15 @@ static void MX_CAN_Init(void);
 static void MX_I2C1_Init(void);
 /* USER CODE BEGIN PFP */
 
+static void app_switch_state(en_app_state_t en_a_app_new_state);
 static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str);
 static void app_tx_over_can(uint8_t * msg);
+static void app_write_on_screen(uint8_t * string, uint8_t Col, uint8_t Row, boolean clearScreen);
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-/* Flag to indicate update data has been received and ready to be flashed */
-STATIC BOOLEAN bool_gs_update_ready = FALSE;
 
 void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 {
@@ -149,16 +150,16 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 		case APP_STATE_CHECK_FOR_UPDATES:
 		{
 			/* Check for response */
-			if(ZERO == strcmp(un_gs_RxConv.RxData, APP_CAN_RESP_OK_UPDATE))
+			if(ZERO == strcmp((char *)un_gs_RxConv.RxData, (char *)APP_CAN_RESP_OK_UPDATE))
 			{
 				/* Update Available - Request update size */
-				en_gs_app_state = APP_STATE_GET_UPDATE_SIZE;
+                app_switch_state(APP_STATE_GET_UPDATE_SIZE);
 			}
-			else if(ZERO == strcmp(un_gs_RxConv.RxData, APP_CAN_RESP_NO_UPDATE))
+			else if(ZERO == strcmp((char *)un_gs_RxConv.RxData, (char *)APP_CAN_RESP_NO_UPDATE))
 			{
 				/* No Updates - Cancel */
-				en_gs_app_state = APP_STATE_NO_UPDATE_AV;
-			}
+                app_switch_state(APP_STATE_NO_UPDATE_AV);
+            }
 			else
 			{
 				/* Drop */
@@ -171,7 +172,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			u32_gs_update_size = un_gs_RxConv.u32_Rx_Number;
 
 			/* Fetch again */
-			en_gs_app_state = APP_STATE_GET_UPDATE_SIZE_AGAIN;
+            app_switch_state(APP_STATE_GET_UPDATE_SIZE_AGAIN);
 			break;
 		}
 		case APP_STATE_GET_UPDATE_SIZE_AGAIN:
@@ -183,12 +184,12 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			)
 			{
 				/* Sizes Matches and Valid - Proceed with update */
-				en_gs_app_state = APP_STATE_START_UPDATE;
+                app_switch_state(APP_STATE_START_UPDATE);
 			}
 			else
 			{
 				/* Fail */
-				en_gs_app_state = APP_STATE_INVALID_UPDATE_SIZE;
+                app_switch_state(APP_STATE_INVALID_UPDATE_SIZE);
 			}
 
 			break;
@@ -209,7 +210,7 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
 			  if(u32_gs_rec_count >= u32_gs_update_size)
 			  {
 				  /* Update APP state */
-				  en_gs_app_state = APP_STATE_UPDATE_RECEIVED;
+                  app_switch_state(APP_STATE_UPDATE_RECEIVED);
 			  }
 			  else
 			  {
@@ -297,14 +298,21 @@ int main(void)
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
+  SSD1306_Init (); // initialize the display
+
+  SSD1306_Clear();
+
+  /* Print Welcome Lines */
+  APP_PRINT_MAIN_WELCOME_SCREEN();
+
   /* Systick Config */
   /* Update SystemCoreClock variable according to Clock Register Values */
 	SystemCoreClockUpdate();
 
-	/* Generates interrupt every 500ms
+	/* Generates interrupt every 2 seconds
 	 * Handler inside stm32f1xx_it.c -> SysTick_Handler
 	 * */
-	SysTick_Config(SystemCoreClock/4);
+	SysTick_Config(SystemCoreClock*2);
 
 	SysTick->CTRL = 0;
 	SysTick->VAL = 0;
@@ -347,63 +355,6 @@ int main(void)
    /* Enable Rx FIFO0 Interrupt */
    HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING);
 
-   /* Initialize OLED Screen */
-
-   /* Init OLED */
-    SSD1306_Init();
-
-    /// lets print some string
-
-    SSD1306_GotoXY (0,0);
-    SSD1306_Puts ("HELLO", &Font_11x18, 1);
-    SSD1306_GotoXY (10, 30);
-    SSD1306_Puts ("  WORLD :)", &Font_11x18, 1);
-    SSD1306_UpdateScreen(); //display
-
-    HAL_Delay (2000);
-
-
-    SSD1306_ScrollRight(0,7);  // scroll entire screen
-    HAL_Delay(2000);  // 2 sec
-
-    SSD1306_ScrollLeft(0,7);  // scroll entire screen
-    HAL_Delay(2000);  // 2 sec
-
-    SSD1306_Stopscroll();
-    SSD1306_Clear();
-/*
-
-
-    SSD1306_ScrollRight(0x00, 0x0f);    // scroll entire screen right
-
-    HAL_Delay (2000);
-
-    SSD1306_ScrollLeft(0x00, 0x0f);  // scroll entire screen left
-
-    HAL_Delay (2000);
-*/
-
-/*
-    SSD1306_Scrolldiagright(0x00, 0x0f);  // scroll entire screen diagonal right
-
-    HAL_Delay (2000);
-
-    SSD1306_Scrolldiagleft(0x00, 0x0f);  // scroll entire screen diagonal left
-
-    HAL_Delay (2000);
-
-    SSD1306_Stopscroll();   // stop scrolling. If not done, screen will keep on scrolling
-
-
-    SSD1306_InvertDisplay(1);   // invert the display
-
-    HAL_Delay(2000);
-
-    SSD1306_InvertDisplay(0);  // normalize the display
-*/
-//
-
-//    HAL_Delay(2000);
 
   /* USER CODE END 2 */
 
@@ -423,24 +374,9 @@ int main(void)
 
 			  if(GPIO_PIN_RESET == GPIO_Loc_UpdateBtnState)
 			  {
-				  /* Debounce Delay */
-				  HAL_Delay(APP_BTN_DEBOUNCE_DELAY_MS);
-
-				  /* Recheck */
-				  GPIO_Loc_UpdateBtnState = HAL_GPIO_ReadPin(APP_UPDATE_BTN_ARGS);
-
-				  if(GPIO_PIN_RESET == GPIO_Loc_UpdateBtnState)
-				  {
-					  /* Btn is pressed
-					   * Check for updates */
-					  // todo check for update
-					  APP_BUZZ();
-					  en_gs_app_state = APP_STATE_CHECK_FOR_UPDATES;
-				  }
-				  else
-				  {
-					  /* Do Nothing */
-				  }
+				  /* Btn is pressed
+				   * Check for updates */
+                  app_switch_state(APP_STATE_CHECK_FOR_UPDATES);
 			  }
 			  else
 			  {
@@ -452,25 +388,20 @@ int main(void)
 		  }
 		  case APP_STATE_CHECK_FOR_UPDATES:
 		  {
-              /* Send Check for Updates Command */
-			  app_tx_over_can(APP_CAN_CMD_CHECK_FOR_UPDATE);
-			  break;
+              /* Do Nothing */
+              break;
 		  }
 		  case APP_STATE_GET_UPDATE_SIZE:
 		  case APP_STATE_GET_UPDATE_SIZE_AGAIN:
 		  {
-              /* Send Get Update Size Command */
-			  app_tx_over_can(APP_CAN_CMD_GET_UPDATE_SIZE);
-			  break;
+              /* Do Nothing */
+              break;
 		  }
 		  case APP_STATE_START_UPDATE:
 		  {
-              /* Send Start Update Command */
-			  app_tx_over_can(APP_CAN_CMD_START_UPDATE);
-
-			  /* Switch to receiving state */
-			  en_gs_app_state = APP_STATE_RECEIVING_UPDATE;
-			  break;
+              /* Switch to receiving update */
+              app_switch_state(APP_STATE_RECEIVING_UPDATE);
+              break;
 		  }
 		  case APP_STATE_RECEIVING_UPDATE:
 		  {
@@ -479,16 +410,19 @@ int main(void)
 		  }
 		  case APP_STATE_INVALID_UPDATE_SIZE:
 		  {
-			  /* todo show error on OLED */
-			  en_gs_app_state = APP_STATE_NORMAL;
+              APP_OLED_CLEAR_WRITE(APP_OLED_INVALID_UPDATE_SIZE, 0, 0);
+              HAL_Delay(APP_OLED_MSG_TIMEOUT);
+              /* Reset state back to normal */
+              app_switch_state(APP_STATE_NORMAL);
               break;
 		  }
 
 		  case APP_STATE_NO_UPDATE_AV:
 		  {
-			  /* todo show error on OLED */
-			  en_gs_app_state = APP_STATE_NORMAL;
-
+              APP_OLED_CLEAR_WRITE(APP_OLED_NO_UPDATES, 0, 0);
+              HAL_Delay(APP_OLED_MSG_TIMEOUT);
+              /* Reset state back to normal */
+              app_switch_state(APP_STATE_NORMAL);
               break;
 		  }
 		  case APP_STATE_UPDATE_RECEIVED:
@@ -516,23 +450,25 @@ int main(void)
 				  u32_gs_update_size += padding_count;
 			  }
 
-				/* Flash Update
-				 * Division by two because we flash 16 bits (2-bytes) per write
-				 *  */
-				Flash_Write_Data(APP_UPDATE_START_ADDRESS,
-						((uint32_t *)update_data_arr), u32_gs_update_size / 2);
-
-				/* Turn on status LED indicator to indicate flash is done */
-				APP_UPDATE_STATUS_LED(GPIO_PIN_SET);
-
-				/* Reset update ready flag */
-				bool_gs_update_ready = FALSE;
-
+              app_switch_state(APP_STATE_FLASHING);
 			  break;
 		  }
           case APP_STATE_FLASHING:
           {
-              /* Do Nothing */
+              /* Flash Update
+               * Division by two because we flash 16 bits (2-bytes) per write
+               *  */
+              Flash_Write_Data(APP_UPDATE_START_ADDRESS,
+                               ((uint32_t *)update_data_arr), u32_gs_update_size / 2);
+
+              /* Turn on status LED indicator to indicate flash is done */
+              APP_UPDATE_STATUS_LED(GPIO_PIN_SET);
+
+              APP_OLED_WRITE(APP_OLED_UPDATED_INSTALLED, 0, 4);
+
+              HAL_Delay(APP_OLED_MSG_TIMEOUT);
+
+              app_switch_state(APP_STATE_NORMAL);
               break;
           }
           case APP_STATE_TOTAL:
@@ -644,7 +580,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.ClockSpeed = 400000;
   hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
@@ -685,9 +621,6 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1|GPIO_PIN_2, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
-
   /*Configure GPIO pin : PC13 */
   GPIO_InitStruct.Pin = GPIO_PIN_13;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -708,18 +641,138 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PB4 PB6 PB7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_6|GPIO_PIN_7;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
+
+static void app_switch_state(en_app_state_t en_a_app_new_state)
+{
+    switch(en_gs_app_state)
+    {
+        case APP_STATE_NORMAL:
+        {
+            APP_PRINT_MAIN_WELCOME_SCREEN();
+            /* Do Nothing */
+            break;
+        }
+        case APP_STATE_CHECK_FOR_UPDATES:
+        {
+            /* Send Check for Updates Command */
+            app_tx_over_can(APP_CAN_CMD_CHECK_FOR_UPDATE);
+
+            /* Update OLED */
+            APP_PRINT_CHECKING_FOR_UPDATES();
+            break;
+        }
+        case APP_STATE_GET_UPDATE_SIZE:
+        {
+            /* Send Get Update Size Command */
+            app_tx_over_can(APP_CAN_CMD_GET_UPDATE_SIZE);
+
+            /* Update OLED */
+            APP_OLED_WRITE(APP_OLED_GETTING_UPDATE_SIZE, 0, 4);
+            break;
+        }
+        case APP_STATE_GET_UPDATE_SIZE_AGAIN:
+        {
+            /* Send Get Update Size Command */
+            app_tx_over_can(APP_CAN_CMD_GET_UPDATE_SIZE);
+
+            /* Update OLED */
+            APP_OLED_WRITE(APP_OLED_VERIFYING_UPDATE_SIZE, 0, 5);
+            break;
+        }
+        case APP_STATE_START_UPDATE:
+        {
+            /* Update OLED */
+            APP_OLED_CLEAR_WRITE(APP_OLED_STARTING_UPDATE, 0, 0);
+
+            /* Send Start Update Command */
+            app_tx_over_can(APP_CAN_CMD_START_UPDATE);
+            break;
+        }
+        case APP_STATE_RECEIVING_UPDATE:
+        {
+            /* Update OLED */
+            APP_OLED_WRITE(APP_OLED_UPDATE_IN_PROGRESS, 0, 1);
+            break;
+        }
+        case APP_STATE_INVALID_UPDATE_SIZE:
+        {
+            /* Do Nothing */
+            break;
+        }
+
+        case APP_STATE_NO_UPDATE_AV:
+        {
+            /* Do Nothing */
+            break;
+        }
+        case APP_STATE_UPDATE_RECEIVED:
+        {
+            /* Update OLED */
+            APP_OLED_WRITE(APP_OLED_UPDATED_DATA_PROCESS, 0, 2);
+            break;
+        }
+        case APP_STATE_FLASHING:
+        {
+            /* Do Nothing */
+            APP_OLED_WRITE(APP_OLED_UPDATED_INSTALLING, 0, 3);
+            break;
+        }
+        case APP_STATE_TOTAL:
+        {
+            /* Do Nothing */
+            break;
+        }
+        default:
+        {
+            /* Do Nothing */
+            break;
+        }
+
+    }
+
+    /* Update global app state */
+    en_gs_app_state = en_a_app_new_state;
+
+}
+
+/* Custom Function to write on OLED Screen
+ * According to Font 7x10 and Screen Size 128x64
+ * Max Col, Rows are 17, 5 respectively
+ * */
+static void app_write_on_screen(uint8_t * string, uint8_t Col, uint8_t Row, boolean clearScreen)
+{
+	if((Col > 17) || (Row > 5))
+	{
+		/* Cancel */
+	}
+	else
+	{
+		if(TRUE == clearScreen)
+		{
+			SSD1306_Clear();
+		}
+		else
+		{
+			/* Do Nothing */
+		}
+
+	/* Goto Requested Position */
+	  SSD1306_GotoXY (Col * 7, Row * 10);
+
+	  /* Write String */
+	  SSD1306_Puts ((char *) string, &Font_7x10, SSD1306_COLOR_WHITE);
+
+	  /* Update Screen */
+	  SSD1306_UpdateScreen(); //display
+
+	}
+}
+
 
 /* Fills an array with APP_TX_DATA_LENGTH bytes with an APP_TX_DATA_LENGTH byte string */
 static void app_fill_array_with_str(uint8_t * u8ptr_array, uint8_t * u8ptr_a_str)

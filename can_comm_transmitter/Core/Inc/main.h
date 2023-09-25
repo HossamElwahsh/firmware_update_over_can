@@ -67,17 +67,49 @@ void Error_Handler(void);
 #define APP_UPDATE_BTN_ARGS		GPIOB, GPIO_PIN_0
 #define APP_BUZZER_ARGS			GPIOB, GPIO_PIN_4
 
+
+/* APP CAN Commands/Messages */
+#define APP_CAN_CMD_CHECK_FOR_UPDATE 	(uint8_t *)"CHECKUPD"
+#define APP_CAN_CMD_GET_UPDATE_SIZE		(uint8_t *)"UPDTSIZE"
+#define APP_CAN_CMD_START_UPDATE		(uint8_t *)"STARTUPD"
+
+#define APP_CAN_RESP_OK_UPDATE			"OKUPDATE"
+#define APP_CAN_RESP_NO_UPDATE			"NOUPDATE"
+
+#define APP_OLED_WELCOME_L1				(uint8_t *)"EME"
+#define APP_OLED_WELCOME_L2				(uint8_t *)"Blinking every 2s"
+#define APP_OLED_WELCOME_L3				(uint8_t *)"Press 4 to update"
+#define APP_OLED_CHECKING_FOR_UPDATE_L1	(uint8_t *)"Please wait"
+#define APP_OLED_CHECKING_FOR_UPDATE_L2	(uint8_t *)"Checking for"
+#define APP_OLED_CHECKING_FOR_UPDATE_L3	(uint8_t *)"updates..."
+#define APP_OLED_NO_UPDATES             (uint8_t *)"No updates avail."
+#define APP_OLED_GETTING_UPDATE_SIZE	(uint8_t *)"Retrieving size.."
+#define APP_OLED_VERIFYING_UPDATE_SIZE	(uint8_t *)"Verifying size..."
+#define APP_OLED_INVALID_UPDATE_SIZE    (uint8_t *)"Fail:Invalid Size"
+#define APP_OLED_STARTING_UPDATE		(uint8_t *)"Starting update.."
+#define APP_OLED_UPDATE_IN_PROGRESS		(uint8_t *)"Downloading data "
+#define APP_OLED_UPDATED_DATA_PROCESS   (uint8_t *)"Unpacking data..."
+#define APP_OLED_UPDATED_INSTALLING     (uint8_t *)"Installing update"
+#define APP_OLED_UPDATED_INSTALLED      (uint8_t *)"Install Success !"
+
 /* Helping Macros */
 #define APP_UPDATE_STATUS_LED(value) HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, value)
 #define APP_TOGGLE_STATUS_LED() HAL_GPIO_TogglePin(GPIOC, GPIO_PIN_13)
-#define APP_BUZZ()	HAL_GPIO_WritePin(APP_BUZZER_ARGS, GPIO_PIN_SET);\
-					HAL_Delay(APP_BUZZ_DELAY_MS);\
-					HAL_GPIO_WritePin(APP_BUZZER_ARGS, GPIO_PIN_RESET)
+
+#define APP_OLED_WRITE(string, col, row) app_write_on_screen(string, col, row, FALSE);
+#define APP_OLED_CLEAR_WRITE(string, col, row) app_write_on_screen(string, col, row, TRUE);
+
+#define APP_PRINT_MAIN_WELCOME_SCREEN() APP_OLED_CLEAR_WRITE(APP_OLED_WELCOME_L1, 0, 0);\
+		APP_OLED_WRITE(APP_OLED_WELCOME_L2, 0, 2);\
+		APP_OLED_WRITE(APP_OLED_WELCOME_L3, 0, 3);
+
+#define APP_PRINT_CHECKING_FOR_UPDATES()  APP_OLED_CLEAR_WRITE(APP_OLED_CHECKING_FOR_UPDATE_L1, 0, 0);\
+		APP_OLED_WRITE(APP_OLED_CHECKING_FOR_UPDATE_L2, 0, 2);\
+		APP_OLED_WRITE(APP_OLED_CHECKING_FOR_UPDATE_L3, 6, 3);
+
 
 /* APP Delays */
-#define APP_SEND_DELAY_MS  200
-#define APP_BTN_DEBOUNCE_DELAY_MS 50
-#define APP_BUZZ_DELAY_MS 100
+#define APP_OLED_MSG_TIMEOUT 3000
 
 /* APP CAN Configs */
 #define APP_CAN_TX_MSG_ID		0x101
@@ -89,16 +121,6 @@ void Error_Handler(void);
 /* Flashing Config */
 #define APP_UPDATE_START_ADDRESS 	0x08001C00UL
 #define APP_UPDATE_MAX_SIZE_BYTES	7000UL
-
-/* APP CAN Commands/Messages */
-#define APP_CAN_CMD_CHECK_FOR_UPDATE 	"CHECKUPD"
-#define APP_CAN_CMD_GET_UPDATE_SIZE		"UPDTSIZE"
-#define APP_CAN_CMD_START_UPDATE		"STARTUPD"
-
-#define APP_CAN_RESP_OK_UPDATE			"OKUPDATE"
-#define APP_CAN_RESP_NO_UPDATE			"NOUPDATE"
-
-//#define APP_CHECK_RX_WORDS_COUNT 580UL
 
 /* USER CODE END Private defines */
 

@@ -105,9 +105,9 @@ int main(void)
 
   // Enable Red LED
   HAL_GPIO_WritePin(APP_RED_LED_ARGS, GPIO_PIN_SET);
-  HAL_Delay(1000);
+  HAL_Delay(500);
   HAL_GPIO_WritePin(APP_RED_LED_ARGS, GPIO_PIN_RESET);
-  HAL_Delay(1000);
+  HAL_Delay(500);
 
   /* USER CODE END 2 */
 
