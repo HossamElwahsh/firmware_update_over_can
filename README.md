@@ -33,8 +33,10 @@ A custom bootloader is responsible for switching between the 2 firmware versions
 
 #### Project Description
 ##### Objective
+
 Update the initial firmware running on the STM32 that toggles the blue LED every 2 sec.<br />
 to a new firmware that toggles the blue LED every 1 sec.
+
 ---
 
 ### General Operational Notes
